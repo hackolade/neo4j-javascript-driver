@@ -5,10 +5,10 @@ pids
 *.pid
 *.seed
 .lock-wscript
-build
 node_modules
 .idea
 docs/build
 .npmrc
 *.iml
-/lib
+build
+
