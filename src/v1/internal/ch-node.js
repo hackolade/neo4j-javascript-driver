@@ -145,6 +145,56 @@ const TrustStrategy = {
     socket.on('error', onFailure);
     return socket;
   },
+  TRUST_SERVER_CLIENT_CERTIFICATES: function TRUST_SERVER_CLIENT_CERTIFICATES(config, onSuccess, onFailure) {
+    if (!config.trustedCertificates || config.trustedCertificates.length === 0) {
+      onFailure((0, _error.newError)("You are using TRUST_CUSTOM_CA_SIGNED_CERTIFICATES as the method " +
+      "to verify trust for encrypted  connections, but have not configured any " +
+      "trustedCertificates. You  must specify the path to at least one trusted " +
+      "X.509 certificate for this to work. Two other alternatives is to use " +
+      "TRUST_ALL_CERTIFICATES or to disable encryption by setting encrypted=\"" + _util.ENCRYPTION_OFF + "\"" +
+      "in your driver configuration."));
+      return;
+    } else if (!config.key) {
+      onFailure((0, _error.newError)("You are using TRUST_SERVER_CLIENT_CERTIFICATES as the method " +
+      "to verify trust for encrypted  connections, but have not configured any" +
+      "key. You  must specify the path to the key for this to work. Two other alternatives is to use " +
+      "TRUST_ALL_CERTIFICATES or to disable encryption by setting encrypted=\"" + _util.ENCRYPTION_OFF + "\"" +
+      "in your driver configuration."));
+      return;
+    } else if (!config.cert) {
+      onFailure((0, _error.newError)("You are using TRUST_SERVER_CLIENT_CERTIFICATES as the method " +
+      "to verify trust for encrypted  connections, but have not configured any " +
+      "client certificates. You  must specify the path to the client certificate for this to work. Two other alternatives is to use " +
+      "TRUST_ALL_CERTIFICATES or to disable encryption by setting encrypted=\"" + _util.ENCRYPTION_OFF + "\"" +
+      "in your driver configuration."));
+      return;
+    }
+
+    let tlsOpts = {
+      ca: config.trustedCertificates.map((f) => fs.readFileSync(f)),
+      key: fs.readFileSync(config.key),
+      cert: fs.readFileSync(config.cert),
+      passphrase: config.passphrase, 
+      // Because we manually check for this in the connect callback, to give
+      // a more helpful error to the user
+      rejectUnauthorized: false
+    };
+
+    let socket = tls.connect(config.url.port, config.url.host, tlsOpts, function () {
+      if (!socket.authorized) {
+        onFailure(newError("Server certificate is not trusted. If you trust the database you are connecting to, add" +
+          " the signing certificate, or the server certificate, to the list of certificates trusted by this driver" +
+          " using `neo4j.v1.driver(.., { trustedCertificates:['path/to/certificate.crt']}). This " +
+          " is a security measure to protect against man-in-the-middle attacks. If you are just trying " +
+          " Neo4j out and are not concerned about encryption, simply disable it using `encrypted=\"" + ENCRYPTION_OFF + "\"`" +
+          " in the driver options. Socket responded with: " + socket.authorizationError));
+      } else {
+        onSuccess();
+      }
+    });
+    socket.on('error', onFailure);
+    return socket;
+  },
   TRUST_SYSTEM_CA_SIGNED_CERTIFICATES : function( config, onSuccess, onFailure ) {
 
     let tlsOpts = {
